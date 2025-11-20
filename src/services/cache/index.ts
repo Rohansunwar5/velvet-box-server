@@ -3,8 +3,8 @@ import config from '../../config';
 import logger from '../../utils/logger';
 
 const redisClient = redis.createClient({
-  url: `redis://${config.REDIS_HOST}:${config.REDIS_PORT}`,
-  disableOfflineQueue: true
+  url: `redis://:${config.REDIS_HOST}:${config.REDIS_PORT}`,
+  disableOfflineQueue: true,
 });
 
 redisClient.on('ready', () => {

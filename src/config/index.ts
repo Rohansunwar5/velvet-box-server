@@ -14,6 +14,9 @@ const config = {
   CLOUDWATCH_LOGS_ID: process.env.CLOUDWATCH_LOGS_ID! as string,
   CLOUDWATCH_LOGS_SECRET: process.env.CLOUDWATCH_LOGS_SECRET! as string,
   CLOUDWATCH_LOGS_REGION: process.env.CLOUDWATCH_LOGS_REGION! as string,
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME! as string,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY! as string,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET! as string,
 
   SERVER_NAME: `${process.env.SERVER_NAME}-${process.env.NODE_ENV}`! as string,
   S3_BUCKET_NAME: process.env.S3_BUCKET_NAME! as string,
