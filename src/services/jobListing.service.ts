@@ -9,11 +9,17 @@ import JobListingRepository, {
 } from '../repository/jobListing.repository';
 import { customAlphabet } from 'nanoid';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
+import config from '../config';
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10);
 
 class JobListingService {
   constructor(private readonly _jobListingRepository: typeof JobListingRepository) {}
+
+  private generateShareableLink(slug: string): string {
+    const frontendUrl = config.FRONTEND_URL;
+    return `${frontendUrl}/jobs/${slug}`;
+  }
 
   async createJobListing(params: CreateJobListingParams ) {
     const { ...jobData } = params;
@@ -34,7 +40,12 @@ class JobListingService {
 
       if (!jobListing) throw new InternalServerError('Failed to create job listing');
 
-      return jobListing;
+      const shareableLink = this.generateShareableLink(jobListing.slug!);
+
+      return {
+        jobListing,
+        shareableLink
+      };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.message.includes('already exists')) {
@@ -55,7 +66,13 @@ class JobListingService {
       jobListing.views += 1;
     }
 
-    return jobListing;
+    const shareableLink = this.generateShareableLink(jobListing.slug!);
+
+    return {
+      jobListing,
+      shareableLink
+    };
+
   }
 
   async getJobListingBySlug(slug: string, incrementViews: boolean = false) {
@@ -68,13 +85,26 @@ class JobListingService {
       await this._jobListingRepository.incrementViews(jobListing._id);
       jobListing.views += 1;
     }
-
-    return jobListing;
+    const shareableLink = this.generateShareableLink(slug);
+    
+    return {
+      jobListing,
+      shareableLink
+    };
   }
 
   async getAllJobListings(params: GetAllJobListingsParams) {
     const result = await this._jobListingRepository.getAllJobListings(params);
-    return result;
+
+    const jobListingsWithLinks = result.jobListings.map(job => ({
+      ...job.toObject(),
+      shareableLink: this.generateShareableLink(job.slug!)
+    }));
+
+    return {
+      ...result,
+      jobListings: jobListingsWithLinks
+    };
   }
 
 
@@ -96,7 +126,15 @@ class JobListingService {
       filters
     );
 
-    return result;
+    const jobListingsWithLinks = result.jobListings.map(job => ({
+      ...job.toObject(),
+      shareableLink: this.generateShareableLink(job.slug!)
+    }));
+
+    return {
+      ...result,
+      jobListings: jobListingsWithLinks
+    };
   }
 
   async updateJobListing(
@@ -120,7 +158,13 @@ class JobListingService {
     const updatedJob = await this._jobListingRepository.updateJobListing(jobId, updateData);
     if (!updatedJob) throw new InternalServerError('Failed to update job listing');
 
-    return updatedJob;
+    // Generate shareable link
+    const shareableLink = this.generateShareableLink(updatedJob.slug!);
+
+    return {
+      jobListing: updatedJob,
+      shareableLink
+    };
   }
 
   async updateJobStatus(jobId: string, status: JobStatus) {
@@ -156,7 +200,12 @@ class JobListingService {
     const publishedJob = await this._jobListingRepository.publishJobListing(jobId);
     if (!publishedJob) throw new InternalServerError('Failed to publish job listing');
 
-    return publishedJob;
+    const shareableLink = this.generateShareableLink(publishedJob.slug!);
+
+    return {
+      jobListing: publishedJob,
+      shareableLink
+    };
   }
 
   async unpublishJobListing(jobId: string) {
@@ -382,7 +431,15 @@ class JobListingService {
       limit
     );
 
-    return result;
+    const jobListingsWithLinks = result.jobListings.map(job => ({
+        ...job.toObject(),
+        shareableLink: this.generateShareableLink(job.slug!)
+    }));
+
+    return {
+      ...result,
+      jobListings: jobListingsWithLinks
+    };
   }
 
   async getExpiredJobListings(page: number = 1, limit: number = 10) {
