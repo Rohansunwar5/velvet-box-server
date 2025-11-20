@@ -8,7 +8,7 @@ import JobListingRepository, {
   GetAllJobListingsParams
 } from '../repository/jobListing.repository';
 import { customAlphabet } from 'nanoid';
-import { uploadToCloudinary } from '../utils/cloudinary.util';
+import { uploadDocumentToCloudinary, uploadImageToCloudinary } from '../utils/cloudinary.util';
 import config from '../config';
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10);
@@ -86,7 +86,7 @@ class JobListingService {
       jobListing.views += 1;
     }
     const shareableLink = this.generateShareableLink(slug);
-    
+
     return {
       jobListing,
       shareableLink
@@ -560,7 +560,7 @@ class JobListingService {
     }
 
     if (params.files && params.files.length > 0) {
-        const uploadPromises = params.files.map((file) => uploadToCloudinary(file));
+        const uploadPromises = params.files.map((file) => uploadImageToCloudinary(file));
         const newImageUrls = await Promise.all(uploadPromises);
         imageUrls = [...imageUrls, ...newImageUrls];
     }
@@ -583,7 +583,7 @@ class JobListingService {
     }
 
     if (params.files && params.files.length > 0) {
-      const uploadPromises = params.files.map((file) => uploadToCloudinary(file));
+      const uploadPromises = params.files.map((file) => uploadDocumentToCloudinary(file));
       const newDocumentUrls = await Promise.all(uploadPromises);
       documentUrls = [...documentUrls, ...newDocumentUrls];
     }
