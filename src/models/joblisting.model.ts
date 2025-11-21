@@ -113,7 +113,7 @@ const mediaSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['image', 'video'],
+    enum: ['image', 'video', 'document'],
     required: true,
   },
   filename: {
@@ -335,7 +335,7 @@ export interface IJobListing extends mongoose.Document {
   media: Array<{
     _id: mongoose.Types.ObjectId;
     url: string;
-    type: 'image' | 'video';
+    type: 'image' | 'video' | 'document';
     filename?: string;
     size?: number;
     mimeType?: string;
