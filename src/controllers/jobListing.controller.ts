@@ -369,3 +369,34 @@ export const uploadDocumentForForms = async (req: Request, res: Response, next: 
 
   next(documentUrls);
 };
+
+export const uploadVoiceRecording = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.file) {
+    return next({ status: 400, message: 'No voice recording uploaded' });
+  }
+
+  const { maxDuration } = req.body;
+
+  const result = await jobListingService.handleVoiceRecordingUpload({
+    file: req.file,
+    maxDuration: maxDuration ? Number(maxDuration) : undefined,
+  });
+
+  next(result);
+};
+
+export const uploadVideoRecording = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.file) {
+    return next({ status: 400, message: 'No video recording uploaded' });
+  }
+
+  const { maxDuration, quality } = req.body;
+
+  const result = await jobListingService.handleVideoRecordingUpload({
+    file: req.file,
+    maxDuration: maxDuration ? Number(maxDuration) : undefined,
+    quality: quality || 'auto',
+  });
+
+  next(result);
+};

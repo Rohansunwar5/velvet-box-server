@@ -14,7 +14,9 @@ export enum FieldType {
   FILE = 'file',
   IMAGE = 'image',
   VIDEO = 'video',
-  URL = 'url'
+  URL = 'url',
+  VOICE_RECORDING = 'voice_recording',
+  VIDEO_RECORDING = 'video_recording'
 }
 
 export enum JobStatus {
@@ -61,6 +63,25 @@ const dynamicFieldSchema = new mongoose.Schema({
     min: Number,
     max: Number,
     pattern: String,
+  },
+  recordingCanfig: {
+    maxDuration: {
+      type: Number,
+      default: 300
+    },
+    minDuration: {
+      type: Number,
+      default: 0
+    },
+    allowRetake: {
+      type: Boolean,
+      default: true
+    },
+    format: {
+      type: String,
+      enum: ['webm', 'mp4', 'wav', 'mp3'],
+      default: 'webm'
+    }
   },
   order: {
     type: Number,
@@ -300,6 +321,12 @@ export interface IJobListing extends mongoose.Document {
         min?: number;
         max?: number;
         pattern?: string;
+      };
+      recordingConfig?: {
+        maxDuration?: number;
+        minDuration?: number;
+        allowRetake?: boolean;
+        format?: string;
       };
       order: number;
     }>;

@@ -8,7 +8,7 @@ import JobListingRepository, {
   GetAllJobListingsParams
 } from '../repository/jobListing.repository';
 import { customAlphabet } from 'nanoid';
-import { uploadDocumentToCloudinary, uploadImageToCloudinary } from '../utils/cloudinary.util';
+import { uploadAudioToCloudinary, uploadDocumentToCloudinary, uploadImageToCloudinary, uploadVideoToCloudinary } from '../utils/cloudinary.util';
 import config from '../config';
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10);
@@ -594,6 +594,60 @@ class JobListingService {
 
     return documentUrls;
   }
+
+ async handleVoiceRecordingUpload(params: {
+  file?: Express.Multer.File;
+  existingUrl?: string;
+  maxDuration?: number;
+}): Promise<{ url: string; duration: number; format: string }> {
+  if (params.existingUrl) {
+    return {
+      url: params.existingUrl,
+      duration: 0,
+      format: 'unknown'
+    };
+  }
+
+  if (!params.file) {
+    throw new BadRequestError('Voice recording file is required');
+  }
+
+  // Upload to Cloudinary with optional duration limit
+  const result = await uploadAudioToCloudinary(params.file, {
+    folder: 'job-listings/voice-recordings',
+    maxDuration: params.maxDuration,
+  });
+
+  return result;
+}
+
+async handleVideoRecordingUpload(params: {
+  file?: Express.Multer.File;
+  existingUrl?: string;
+  maxDuration?: number;
+  quality?: 'auto' | 'auto:low' | 'auto:good' | 'auto:best';
+}): Promise<{ url: string; duration: number; format: string }> {
+  if (params.existingUrl) {
+    return {
+      url: params.existingUrl,
+      duration: 0,
+      format: 'unknown'
+    };
+  }
+
+  if (!params.file) {
+    throw new BadRequestError('Video recording file is required');
+  }
+
+  // Upload to Cloudinary with optional duration limit and quality
+  const result = await uploadVideoToCloudinary(params.file, {
+    folder: 'job-listings/video-recordings',
+    maxDuration: params.maxDuration,
+    quality: params.quality || 'auto',
+  });
+
+  return result;
+}
 }
 
 export default new JobListingService(JobListingRepository);

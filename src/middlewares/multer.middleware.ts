@@ -1,64 +1,75 @@
+// In your multer.middleware.ts
+
 import multer from 'multer';
-import { BadRequestError } from '../errors/bad-request.error';
 
-const storage = multer.memoryStorage();
-
-
-const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new BadRequestError('Only image files are allowed!'));
-  }
-};
-
-const documentFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimeTypes = [
-    'application/pdf',
-    'application/msword', // .doc
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-    'application/vnd.ms-excel', // .xls
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-    'text/plain', // .txt
-    'application/vnd.ms-powerpoint', // .ppt
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-  ];
-
-  if (allowedMimeTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new BadRequestError('Only document files (PDF, Word, Excel, PowerPoint, TXT) are allowed!'));
-  }
-};
-
-const documentUpload = multer({
-  storage,
-  fileFilter: documentFilter,
+// Existing image upload
+export const uploadImage = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit for documents
-  }
-});
+    fileSize: 5 * 1024 * 1024, // 5MB for images
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+    }
+  },
+}).single('image');
 
-export const uploadDocument = documentUpload.single('document');
-export const uploadMultipleDocuments = documentUpload.array('documents', 5);
-
-const upload = multer({
-  storage,
-  fileFilter,
+// Existing document upload
+export const uploadDocument = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024
-  }
-});
+    fileSize: 10 * 1024 * 1024, // 10MB for documents
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, XLS, XLSX are allowed.'));
+    }
+  },
+}).single('document');
 
-export const uploadImage = upload.single('image');
-export const uploadFile = upload.single('file');
-
-const blogUpload = multer({
-  storage,
-  fileFilter,
+// NEW: Video/Audio recording upload
+export const uploadRecording = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 15 * 1024 * 1024
-  }
-});
+    fileSize: 100 * 1024 * 1024, // 100MB for video/audio recordings
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      // Video formats
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'video/x-msvideo',
+      'video/mpeg',
+      'video/ogg',
+      // Audio formats
+      'audio/webm',
+      'audio/wav',
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/ogg',
+      'audio/mp4',
+      'audio/x-m4a',
+      'audio/aac',
+    ];
 
-export const uploadBlogImages = blogUpload.single('blogImage');
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only video and audio recordings are allowed.'));
+    }
+  },
+}).single('recording'); // 👈 Field name is 'recording'

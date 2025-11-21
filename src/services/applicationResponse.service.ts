@@ -3,8 +3,8 @@ import { InternalServerError } from '../errors/internal-server.error';
 import { NotFoundError } from '../errors/not-found.error';
 
 import mongoose from 'mongoose';
-import { ApplicationRepository } from '../repository/applicationResponse.repository';
-import { IApplication } from '../models/applicationResponse.model';
+import ApplicationRepository, { ApplicationRepository as AppRepo } from '../repository/applicationResponse.repository';
+import { IApplication, IApplicationResponse } from '../models/applicationResponse.model';
 
 interface ISubmitApplicationParams {
   jobListingId: string;
@@ -13,23 +13,9 @@ interface ISubmitApplicationParams {
     email: string;
     phone?: string;
   };
-  responses: Array<{
-    fieldName: string;
-    fieldLabel: string;
-    fieldType: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    value?: any;
-    files?: Array<{
-      url: string;
-      filename: string;
-      size: number;
-      mimeType: string;
-      uploadedAt: Date;
-    }>;
-  }>;
+  responses: IApplicationResponse[];
   formSnapshot: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    customSections: any;
+    customSections: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   };
 }
 
@@ -48,7 +34,62 @@ interface IGetApplicationsParams {
 }
 
 class ApplicationService {
-  constructor(private readonly _applicationRepository: ApplicationRepository) {}
+  constructor(private readonly _applicationRepository: AppRepo) {}
+
+  // Helper to validate recording responses
+  private validateRecordingResponse(response: IApplicationResponse, fieldConfig?: any): void { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const fieldType = response.fieldType;
+
+    if (fieldType === 'voice_recording') {
+      if (!response.voiceRecording || !response.voiceRecording.url) {
+        if (fieldConfig?.isRequired) {
+          throw new BadRequestError(`Voice recording is required for field: ${response.fieldLabel}`);
+        }
+      } else {
+        // Validate duration if config exists
+        if (fieldConfig?.recordingConfig) {
+          const { minDuration, maxDuration } = fieldConfig.recordingConfig;
+          const duration = response.voiceRecording.duration;
+
+          if (minDuration && duration < minDuration) {
+            throw new BadRequestError(
+              `Voice recording for ${response.fieldLabel} must be at least ${minDuration} seconds`
+            );
+          }
+          if (maxDuration && duration > maxDuration) {
+            throw new BadRequestError(
+              `Voice recording for ${response.fieldLabel} cannot exceed ${maxDuration} seconds`
+            );
+          }
+        }
+      }
+    }
+
+    if (fieldType === 'video_recording') {
+      if (!response.videoRecording || !response.videoRecording.url) {
+        if (fieldConfig?.isRequired) {
+          throw new BadRequestError(`Video recording is required for field: ${response.fieldLabel}`);
+        }
+      } else {
+        // Validate duration if config exists
+        if (fieldConfig?.recordingConfig) {
+          const { minDuration, maxDuration } = fieldConfig.recordingConfig;
+          const duration = response.videoRecording.duration;
+
+          if (minDuration && duration < minDuration) {
+            throw new BadRequestError(
+              `Video recording for ${response.fieldLabel} must be at least ${minDuration} seconds`
+            );
+          }
+          if (maxDuration && duration > maxDuration) {
+            throw new BadRequestError(
+              `Video recording for ${response.fieldLabel} cannot exceed ${maxDuration} seconds`
+            );
+          }
+        }
+      }
+    }
+  }
 
   async submitApplication(params: ISubmitApplicationParams): Promise<IApplication> {
     const { jobListingId, candidate, responses, formSnapshot } = params;
@@ -77,11 +118,48 @@ class ApplicationService {
       throw new BadRequestError('Application responses are required');
     }
 
+    // Validate recording responses against formSnapshot
+    if (formSnapshot && formSnapshot.customSections) {
+      for (const section of formSnapshot.customSections) {
+        if (section.fields) {
+          for (const field of section.fields) {
+            const response = responses.find(r => r.fieldName === field.fieldName);
+            if (response) {
+              this.validateRecordingResponse(response, field);
+            } else if (field.isRequired) {
+              throw new BadRequestError(`Required field missing: ${field.fieldLabel}`);
+            }
+          }
+        }
+      }
+    }
+
+    // Add uploadedAt timestamp to recordings
+    const processedResponses = responses.map(response => {
+      const processed = { ...response };
+
+      if (response.voiceRecording && !response.voiceRecording.uploadedAt) {
+        processed.voiceRecording = {
+          ...response.voiceRecording,
+          uploadedAt: new Date()
+        };
+      }
+
+      if (response.videoRecording && !response.videoRecording.uploadedAt) {
+        processed.videoRecording = {
+          ...response.videoRecording,
+          uploadedAt: new Date()
+        };
+      }
+
+      return processed;
+    });
+
     // Create application
     const application = await this._applicationRepository.createApplication({
       jobListingId,
       candidate,
-      responses,
+      responses: processedResponses,
       formSnapshot,
     });
 
@@ -142,6 +220,26 @@ class ApplicationService {
     }
 
     const applications = await this._applicationRepository.getApplicationsByCandidateEmail(email);
+    return applications;
+  }
+
+  // NEW: Get applications with voice recordings
+  async getApplicationsWithVoiceRecordings(jobListingId: string): Promise<IApplication[]> {
+    if (!mongoose.Types.ObjectId.isValid(jobListingId)) {
+      throw new BadRequestError('Invalid job listing ID');
+    }
+
+    const applications = await this._applicationRepository.getApplicationsWithVoiceRecordings(jobListingId);
+    return applications;
+  }
+
+  // NEW: Get applications with video recordings
+  async getApplicationsWithVideoRecordings(jobListingId: string): Promise<IApplication[]> {
+    if (!mongoose.Types.ObjectId.isValid(jobListingId)) {
+      throw new BadRequestError('Invalid job listing ID');
+    }
+
+    const applications = await this._applicationRepository.getApplicationsWithVideoRecordings(jobListingId);
     return applications;
   }
 
@@ -292,8 +390,7 @@ class ApplicationService {
   async searchApplicationsByResponse(
     jobListingId: string,
     fieldName: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    searchValue: any
+    searchValue: any // eslint-disable-line @typescript-eslint/no-explicit-any
   ): Promise<IApplication[]> {
     if (!mongoose.Types.ObjectId.isValid(jobListingId)) {
       throw new BadRequestError('Invalid job listing ID');
@@ -390,4 +487,4 @@ class ApplicationService {
   }
 }
 
-export default new ApplicationService(new ApplicationRepository());
+export default new ApplicationService(ApplicationRepository);

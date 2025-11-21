@@ -16,6 +16,7 @@ const applicationResponseSchema = new mongoose.Schema({
   value: {
     type: mongoose.Schema.Types.Mixed,
   },
+  // For regular file uploads (FILE, IMAGE field types)
   files: [{
     url: String,
     filename: String,
@@ -23,6 +24,26 @@ const applicationResponseSchema = new mongoose.Schema({
     mimeType: String,
     uploadedAt: Date,
   }],
+  // NEW: For voice recordings (VOICE_RECORDING field type)
+  voiceRecording: {
+    url: String,
+    duration: Number, // in seconds
+    format: String,
+    filename: String,
+    size: Number,
+    mimeType: String,
+    uploadedAt: Date,
+  },
+  // NEW: For video recordings (VIDEO_RECORDING field type)
+  videoRecording: {
+    url: String,
+    duration: Number, // in seconds
+    format: String,
+    filename: String,
+    size: Number,
+    mimeType: String,
+    uploadedAt: Date,
+  },
 }, { _id: false });
 
 const applicationSchema = new mongoose.Schema(
@@ -81,31 +102,51 @@ const applicationSchema = new mongoose.Schema(
 applicationSchema.index({ jobListingId: 1, status: 1 });
 applicationSchema.index({ 'candidate.email': 1, jobListingId: 1 }, { unique: true });
 
+export interface IApplicationResponse {
+  fieldName: string;
+  fieldLabel: string;
+  fieldType: string;
+  value?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  files?: Array<{
+    url: string;
+    filename: string;
+    size: number;
+    mimeType: string;
+    uploadedAt: Date;
+  }>;
+  // NEW: Voice recording specific
+  voiceRecording?: {
+    url: string;
+    duration: number;
+    format: string;
+    filename?: string;
+    size?: number;
+    mimeType?: string;
+    uploadedAt: Date;
+  };
+  // NEW: Video recording specific
+  videoRecording?: {
+    url: string;
+    duration: number;
+    format: string;
+    filename?: string;
+    size?: number;
+    mimeType?: string;
+    uploadedAt: Date;
+  };
+}
+
 export interface IApplication extends mongoose.Document {
   _id: string;
-  jobListing: mongoose.Types.ObjectId;
+  jobListingId: mongoose.Types.ObjectId;
   candidate: {
     name: string;
     email: string;
     phone?: string;
   };
-  responses: Array<{
-    fieldName: string;
-    fieldLabel: string;
-    fieldType: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    value: any;
-    files?: Array<{
-      url: string;
-      filename: string;
-      size: number;
-      mimeType: string;
-      uploadedAt: Date;
-    }>;
-  }>;
+  responses: IApplicationResponse[];
   formSnapshot: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    customSections: Array<any>;
+    customSections: Array<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   status: 'submitted' | 'under_review' | 'shortlisted' | 'rejected' | 'accepted';
   notes?: string;

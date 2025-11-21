@@ -29,29 +29,12 @@ import {
   removeTagsFromJobListing,
   getJobListingsByEmploymentType,
   uploadImageForForms,
-  uploadDocumentForForms
+  uploadDocumentForForms,
+  uploadVoiceRecording,
+  uploadVideoRecording
 } from '../controllers/jobListing.controller';
-// import {
-//   createJobListingValidator,
-//   updateJobListingValidator,
-//   updateJobStatusValidator,
-//   addMediaValidator,
-//   updateMediaValidator,
-//   addCustomSectionValidator,
-//   updateCustomSectionValidator,
-//   dateRangeValidator,
-//   searchJobListingsValidator,
-//   bulkUpdateStatusValidator,
-//   addTagsValidator,
-//   removeTagsValidator,
-//   jobIdValidator,
-//   slugValidator,
-//   companyIdValidator,
-//   mediaIdValidator,
-//   sectionIdValidator
-// } from '../middlewares/validators/jobListing.validator';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
-import { uploadDocument, uploadImage } from '../middlewares/multer.middleware';
+import { uploadDocument, uploadImage, uploadRecording } from '../middlewares/multer.middleware';
 
 const jobListingRouter = Router();
 
@@ -65,6 +48,8 @@ jobListingRouter.get('/slug/:slug', asyncHandler(getJobListingBySlug));
 jobListingRouter.get('/:jobId', asyncHandler(getJobListingById));
 jobListingRouter.post('/upload-image', uploadImage, asyncHandler(uploadImageForForms));
 jobListingRouter.post('/upload-document', uploadDocument, asyncHandler(uploadDocumentForForms));
+jobListingRouter.post('/upload-voice-recording', uploadRecording, asyncHandler(uploadVoiceRecording));
+jobListingRouter.post('/upload-video-recording', uploadRecording, asyncHandler(uploadVideoRecording));
 // jobListingRouter.get('/:jobId/similar', asyncHandler(getSimilarJobListings));
 
 

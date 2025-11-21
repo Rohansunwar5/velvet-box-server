@@ -1,6 +1,5 @@
-
 import mongoose from 'mongoose';
-import applicationResponseModel, { IApplication } from '../models/applicationResponse.model';
+import applicationResponseModel, { IApplication, IApplicationResponse } from '../models/applicationResponse.model';
 
 export interface ICreateApplicationParams {
   jobListingId: string;
@@ -9,19 +8,7 @@ export interface ICreateApplicationParams {
     email: string;
     phone?: string;
   };
-  responses: Array<{
-    fieldName: string;
-    fieldLabel: string;
-    fieldType: string;
-    value?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    files?: Array<{
-      url: string;
-      filename: string;
-      size: number;
-      mimeType: string;
-      uploadedAt: Date;
-    }>;
-  }>;
+  responses: IApplicationResponse[];
   formSnapshot: {
     customSections: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   };
@@ -186,6 +173,22 @@ export class ApplicationRepository {
     });
   }
 
+  // NEW: Search applications with voice recordings
+  async getApplicationsWithVoiceRecordings(jobListingId: string): Promise<IApplication[]> {
+    return this._model.find({
+      jobListingId: new mongoose.Types.ObjectId(jobListingId),
+      'responses.voiceRecording': { $exists: true, $ne: null },
+    });
+  }
+
+  // NEW: Search applications with video recordings
+  async getApplicationsWithVideoRecordings(jobListingId: string): Promise<IApplication[]> {
+    return this._model.find({
+      jobListingId: new mongoose.Types.ObjectId(jobListingId),
+      'responses.videoRecording': { $exists: true, $ne: null },
+    });
+  }
+
   async getApplicationsPaginated(
     jobListingId: string,
     page: number = 1,
@@ -230,3 +233,5 @@ export class ApplicationRepository {
       .limit(limit);
   }
 }
+
+export default new ApplicationRepository();
