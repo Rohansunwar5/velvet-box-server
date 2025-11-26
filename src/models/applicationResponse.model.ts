@@ -114,7 +114,6 @@ export interface IApplicationResponse {
     mimeType: string;
     uploadedAt: Date;
   }>;
-  // NEW: Voice recording specific
   voiceRecording?: {
     url: string;
     duration: number;
@@ -124,7 +123,6 @@ export interface IApplicationResponse {
     mimeType?: string;
     uploadedAt: Date;
   };
-  // NEW: Video recording specific
   videoRecording?: {
     url: string;
     duration: number;

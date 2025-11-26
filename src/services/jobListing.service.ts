@@ -27,13 +27,21 @@ class JobListingService {
     if (!jobData.jobTitle) throw new BadRequestError('Job title is required');
     if (!jobData.jobDescription) throw new BadRequestError('Job description is required');
     if (!jobData.role) throw new BadRequestError('Role is required');
-    if (!jobData.slug) {
-      const slugBase = jobData.jobTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-      jobData.slug = `${slugBase}-${nanoid()}`;
-    }
+   if (!jobData.slug || jobData.slug.trim() === '') {
+    const slugBase = jobData.jobTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    jobData.slug = `${slugBase}-${nanoid()}`;
+  } else {
+    // sanitize provided slug
+    jobData.slug = jobData.slug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
 
     try {
       const jobListing = await this._jobListingRepository.createJobListing({ ...jobData });
