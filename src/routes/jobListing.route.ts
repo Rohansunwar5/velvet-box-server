@@ -31,7 +31,9 @@ import {
   uploadImageForForms,
   uploadDocumentForForms,
   uploadVoiceRecording,
-  uploadVideoRecording
+  uploadVideoRecording,
+  updateJobListingController,
+  deleteJobListingController
 } from '../controllers/jobListing.controller';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
 import { uploadDocument, uploadImage, uploadRecording } from '../middlewares/multer.middleware';
@@ -51,6 +53,9 @@ jobListingRouter.post('/upload-document', uploadDocument, asyncHandler(uploadDoc
 jobListingRouter.post('/upload-voice-recording', uploadRecording, asyncHandler(uploadVoiceRecording));
 jobListingRouter.post('/upload-video-recording', uploadRecording, asyncHandler(uploadVideoRecording));
 // jobListingRouter.get('/:jobId/similar', asyncHandler(getSimilarJobListings));
+
+jobListingRouter.patch('/:jobId', asyncHandler(updateJobListingController));
+jobListingRouter.delete('/:jobId', asyncHandler(deleteJobListingController));
 
 
 // Protected routes - require authentication

@@ -51,12 +51,12 @@ class ApplicationService {
           const { minDuration, maxDuration } = fieldConfig.recordingConfig;
           const duration = response.voiceRecording.duration;
 
-          if (minDuration && duration < minDuration) {
+          if (minDuration !== undefined && duration < minDuration) {
             throw new BadRequestError(
               `Voice recording for ${response.fieldLabel} must be at least ${minDuration} seconds`
             );
           }
-          if (maxDuration && duration > maxDuration) {
+          if (minDuration !== undefined && duration < minDuration) {
             throw new BadRequestError(
               `Voice recording for ${response.fieldLabel} cannot exceed ${maxDuration} seconds`
             );
@@ -76,12 +76,12 @@ class ApplicationService {
           const { minDuration, maxDuration } = fieldConfig.recordingConfig;
           const duration = response.videoRecording.duration;
 
-          if (minDuration && duration < minDuration) {
+          if (minDuration !== undefined && duration < minDuration) {
             throw new BadRequestError(
               `Video recording for ${response.fieldLabel} must be at least ${minDuration} seconds`
             );
           }
-          if (maxDuration && duration > maxDuration) {
+          if (minDuration !== undefined && duration < minDuration){
             throw new BadRequestError(
               `Video recording for ${response.fieldLabel} cannot exceed ${maxDuration} seconds`
             );
@@ -135,25 +135,49 @@ class ApplicationService {
     }
 
     // Add uploadedAt timestamp to recordings
-    const processedResponses = responses.map(response => {
-      const processed = { ...response };
+    const processedResponses: IApplicationResponse[] = responses.map(r => {
+    const resp = { ...r };
 
-      if (response.voiceRecording && !response.voiceRecording.uploadedAt) {
-        processed.voiceRecording = {
-          ...response.voiceRecording,
-          uploadedAt: new Date()
+      // Normalize files
+      if (resp.files) {
+        resp.files = resp.files.map(f => ({
+          url: f.url,
+          filename: f.filename,
+          size: f.size,
+          mimeType: f.mimeType,
+          uploadedAt: f.uploadedAt || new Date()
+        }));
+      }
+
+      // Normalize voice recording
+      if (resp.voiceRecording) {
+        resp.voiceRecording = {
+          url: resp.voiceRecording.url,
+          duration: resp.voiceRecording.duration,
+          format: resp.voiceRecording.format,
+          filename: resp.voiceRecording.filename,
+          size: resp.voiceRecording.size,
+          mimeType: resp.voiceRecording.mimeType,
+          uploadedAt: resp.voiceRecording.uploadedAt || new Date()
         };
       }
 
-      if (response.videoRecording && !response.videoRecording.uploadedAt) {
-        processed.videoRecording = {
-          ...response.videoRecording,
-          uploadedAt: new Date()
+      // Normalize video recording
+      if (resp.videoRecording) {
+        resp.videoRecording = {
+          url: resp.videoRecording.url,
+          duration: resp.videoRecording.duration,
+          format: resp.videoRecording.format,
+          filename: resp.videoRecording.filename,
+          size: resp.videoRecording.size,
+          mimeType: resp.videoRecording.mimeType,
+          uploadedAt: resp.videoRecording.uploadedAt || new Date()
         };
       }
 
-      return processed;
+      return resp;
     });
+
 
     // Create application
     const application = await this._applicationRepository.createApplication({

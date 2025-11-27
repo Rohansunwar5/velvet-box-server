@@ -1,5 +1,3 @@
-// In your multer.middleware.ts
-
 import multer from 'multer';
 
 // Existing image upload
@@ -21,24 +19,20 @@ export const uploadImage = multer({
 // Existing document upload
 export const uploadDocument = multer({
   storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB for documents
-  },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, XLS, XLSX are allowed.'));
-    }
-  },
+    if (allowedMimes.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Invalid document type'));
+  }
 }).single('document');
+
 
 // NEW: Video/Audio recording upload
 export const uploadRecording = multer({

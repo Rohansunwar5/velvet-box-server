@@ -64,7 +64,7 @@ const dynamicFieldSchema = new mongoose.Schema({
     max: Number,
     pattern: String,
   },
-  recordingCanfig: {
+  recordingConfig: {
     maxDuration: {
       type: Number,
       default: 300

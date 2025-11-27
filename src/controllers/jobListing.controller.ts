@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import jobListingService from '../services/jobListing.service';
 import { JobStatus } from '../models/joblisting.model';
+import { UpdateJobListingParams } from '../repository/jobListing.repository';
 
 export const createJobListing = async (req: Request, res: Response, next: NextFunction) => {
   const response = await jobListingService.createJobListing({
@@ -367,8 +368,12 @@ export const uploadDocumentForForms = async (req: Request, res: Response, next: 
     files: [req.file]
   });
 
-  next(documentUrls);
+  return res.status(200).json({
+    success: true,
+    data: documentUrls,
+  });
 };
+
 
 export const uploadVoiceRecording = async (req: Request, res: Response, next: NextFunction) => {
   if (!req.file) {
@@ -399,4 +404,39 @@ export const uploadVideoRecording = async (req: Request, res: Response, next: Ne
   });
 
   next(result);
+};
+
+export const updateJobListingController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { jobId } = req.params;
+  const updateData: UpdateJobListingParams = req.body;
+
+  const result = await jobListingService.updateJobListing(jobId, updateData);
+
+  next({
+    statusCode: 200,
+    success: true,
+    message: 'Job listing updated successfully',
+    data: result
+  });
+};
+
+export const deleteJobListingController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { jobId } = req.params;
+
+  const deleted = await jobListingService.deleteJobListing(jobId);
+
+  next({
+    statusCode: 200,
+    success: true,
+    message: 'Job listing deleted successfully',
+    data: deleted
+  });
 };

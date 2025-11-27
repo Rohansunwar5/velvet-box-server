@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
+import path from 'path';
 import { InternalServerError } from '../errors/internal-server.error';
 import config from '../config';
 
@@ -10,12 +11,68 @@ cloudinary.config({
   secure: true
 });
 
+const sanitizeFilename = (filename: string): string => {
+  const ext = path.extname(filename);
+  const nameWithoutExt = path.basename(filename, ext);
+
+  // Remove special characters and limit length to 50 chars
+  const sanitized = nameWithoutExt
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .substring(0, 50);
+
+  return `${sanitized}${ext}`;
+};
+
+// ✅ WORKING METHOD - Uses Cloudinary's SDK to generate the URL properly
+export const uploadDocumentToCloudinary = (file: Express.Multer.File) => {
+  return new Promise((resolve, reject) => {
+    const originalName = file.originalname;
+    const sanitizedName = sanitizeFilename(originalName);
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'raw',
+        folder: 'velvet-box/documents',
+        use_filename: true,
+        unique_filename: true,
+      },
+      (error, result) => {
+        if (error || !result) {
+          return reject(new InternalServerError('Cloudinary upload failed'));
+        }
+
+        // ✅ USE CLOUDINARY SDK TO GENERATE THE DOWNLOAD URL
+        // This is the CORRECT way - let Cloudinary build the URL
+        const downloadUrl = cloudinary.url(result.public_id, {
+          resource_type: 'raw',
+          flags: 'attachment',
+          attachment: sanitizedName,
+        });
+
+        resolve({
+          url: downloadUrl,
+          publicId: result.public_id,
+          filename: sanitizedName,
+          originalFilename: originalName,
+          size: file.size,
+          mimeType: file.mimetype
+        });
+      }
+    );
+
+    const s = new Readable();
+    s.push(file.buffer);
+    s.push(null);
+    s.pipe(uploadStream);
+  });
+};
+
 export const uploadImageToCloudinary = (file: Express.Multer.File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: 'velvet-box/images',
-        resource_type: 'image', // 🔥 STRICT IMAGE TYPE
+        resource_type: 'image',
       },
       (error, result) => {
         if (error) return reject(new InternalServerError('Failed to upload image to Cloudinary'));
@@ -30,48 +87,25 @@ export const uploadImageToCloudinary = (file: Express.Multer.File): Promise<stri
   });
 };
 
-export const uploadDocumentToCloudinary = (file: Express.Multer.File): Promise<string> => {
+export const uploadAudioToCloudinary = (
+  file: Express.Multer.File,
+  options?: { folder?: string; maxDuration?: number }
+): Promise<{
+  url: string;
+  duration: number;
+  format: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+}> => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: 'velvet-box/documents',
-        resource_type: 'raw', // 🔥 CRITICAL FOR PDF, DOCX, XLSX, PPTX
+        folder: options?.folder || 'velvet-box/voice-recordings',
+        resource_type: 'video',
+        use_filename: true,
+        unique_filename: false
       },
-      (error, result) => {
-        if (error) return reject(new InternalServerError('Failed to upload document to Cloudinary'));
-        if (result) resolve(result.secure_url);
-      }
-    );
-
-    const s = new Readable();
-    s.push(file.buffer);
-    s.push(null);
-    s.pipe(uploadStream);
-  });
-};
-
-// 🎙️ NEW: Upload audio/voice recording to Cloudinary
-export const uploadAudioToCloudinary = (
-  file: Express.Multer.File,
-  options?: {
-    folder?: string;
-    maxDuration?: number; // in seconds
-  }
-): Promise<{ url: string; duration: number; format: string }> => {
-  return new Promise((resolve, reject) => {
-    const uploadOptions: any = { // eslint-disable-line @typescript-eslint/no-explicit-any
-      folder: options?.folder || 'velvet-box/voice-recordings',
-      resource_type: 'video', // 🔥 Cloudinary uses 'video' for audio files
-      chunk_size: 6000000, // 6MB chunks for better upload reliability
-    };
-
-    // Add duration limit if specified
-    if (options?.maxDuration) {
-      uploadOptions.duration = options.maxDuration;
-    }
-
-    const uploadStream = cloudinary.uploader.upload_stream(
-      uploadOptions,
       (error, result) => {
         if (error) {
           return reject(new InternalServerError('Failed to upload audio to Cloudinary'));
@@ -81,6 +115,9 @@ export const uploadAudioToCloudinary = (
             url: result.secure_url,
             duration: result.duration || 0,
             format: result.format || 'unknown',
+            filename: file.originalname,
+            size: file.size,
+            mimeType: file.mimetype
           });
         }
       }
@@ -93,30 +130,30 @@ export const uploadAudioToCloudinary = (
   });
 };
 
-// 🎥 NEW: Upload video recording to Cloudinary
 export const uploadVideoToCloudinary = (
   file: Express.Multer.File,
   options?: {
     folder?: string;
-    maxDuration?: number; // in seconds
+    maxDuration?: number;
     quality?: 'auto' | 'auto:low' | 'auto:good' | 'auto:best';
   }
-): Promise<{ url: string; duration: number; format: string }> => {
+): Promise<{
+  url: string;
+  duration: number;
+  format: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+}> => {
   return new Promise((resolve, reject) => {
-    const uploadOptions: any = { // eslint-disable-line @typescript-eslint/no-explicit-any
-      folder: options?.folder || 'velvet-box/video-recordings',
-      resource_type: 'video',
-      quality: options?.quality || 'auto',
-      chunk_size: 6000000, // 6MB chunks for large files
-    };
-
-    // Add duration limit if specified
-    if (options?.maxDuration) {
-      uploadOptions.duration = options.maxDuration;
-    }
-
     const uploadStream = cloudinary.uploader.upload_stream(
-      uploadOptions,
+      {
+        folder: options?.folder || 'velvet-box/video-recordings',
+        resource_type: 'video',
+        use_filename: true,
+        unique_filename: false,
+        quality: options?.quality || 'auto'
+      },
       (error, result) => {
         if (error) {
           return reject(new InternalServerError('Failed to upload video to Cloudinary'));
@@ -126,6 +163,9 @@ export const uploadVideoToCloudinary = (
             url: result.secure_url,
             duration: result.duration || 0,
             format: result.format || 'unknown',
+            filename: file.originalname,
+            size: file.size,
+            mimeType: file.mimetype
           });
         }
       }
@@ -162,13 +202,11 @@ export const uploadToCloudinary = (file: Express.Multer.File): Promise<string> =
   });
 };
 
-// 🗑️ ENHANCED: Delete media from Cloudinary (supports all resource types)
 export const deleteFromCloudinary = async (
   url: string,
   resourceType: 'image' | 'video' | 'raw' = 'image'
 ): Promise<void> => {
   try {
-    // Extract public_id from URL
     const urlParts = url.split('/');
     const uploadIndex = urlParts.findIndex(part => part === 'upload');
 
@@ -176,27 +214,28 @@ export const deleteFromCloudinary = async (
       throw new Error('Invalid Cloudinary URL');
     }
 
-    // Get the path after 'upload' and version (if exists)
     const pathAfterUpload = urlParts.slice(uploadIndex + 1);
 
-    // Remove version if present (starts with 'v' followed by numbers)
-    const startIndex = pathAfterUpload[0].startsWith('v') && !isNaN(Number(pathAfterUpload[0].slice(1))) ? 1 : 0;
+    // Skip flags like fl_attachment
+    let startIndex = 0;
+    if (pathAfterUpload[0].startsWith('fl_')) {
+      startIndex = 1;
+    } else if (pathAfterUpload[0].startsWith('v') && !isNaN(Number(pathAfterUpload[0].slice(1)))) {
+      startIndex = 1;
+    }
 
-    // Get file path and remove extension
     const filePath = pathAfterUpload.slice(startIndex).join('/');
     const publicId = filePath.substring(0, filePath.lastIndexOf('.')) || filePath;
 
     await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
-      invalidate: true // Invalidate CDN cache
+      invalidate: true
     });
   } catch (error) {
-    // console.error('Error deleting from Cloudinary:', error);
     throw new InternalServerError('Failed to delete file from Cloudinary');
   }
 };
 
-// 🆕 Helper: Get public_id from Cloudinary URL
 export const getPublicIdFromUrl = (url: string): string => {
   try {
     const urlParts = url.split('/');
@@ -207,7 +246,14 @@ export const getPublicIdFromUrl = (url: string): string => {
     }
 
     const pathAfterUpload = urlParts.slice(uploadIndex + 1);
-    const startIndex = pathAfterUpload[0].startsWith('v') && !isNaN(Number(pathAfterUpload[0].slice(1))) ? 1 : 0;
+
+    // Skip flags like fl_attachment
+    let startIndex = 0;
+    if (pathAfterUpload[0].startsWith('fl_')) {
+      startIndex = 1;
+    } else if (pathAfterUpload[0].startsWith('v') && !isNaN(Number(pathAfterUpload[0].slice(1)))) {
+      startIndex = 1;
+    }
 
     const filePath = pathAfterUpload.slice(startIndex).join('/');
     const publicId = filePath.substring(0, filePath.lastIndexOf('.')) || filePath;
@@ -218,7 +264,6 @@ export const getPublicIdFromUrl = (url: string): string => {
   }
 };
 
-// 🆕 Helper: Delete multiple files from Cloudinary
 export const deleteManyFromCloudinary = async (
   urls: string[],
   resourceType: 'image' | 'video' | 'raw' = 'image'
@@ -227,7 +272,6 @@ export const deleteManyFromCloudinary = async (
     const deletePromises = urls.map(url => deleteFromCloudinary(url, resourceType));
     await Promise.all(deletePromises);
   } catch (error) {
-    // console.error('Error deleting multiple files from Cloudinary:', error);
     throw new InternalServerError('Failed to delete files from Cloudinary');
   }
 };

@@ -27,21 +27,20 @@ class JobListingService {
     if (!jobData.jobTitle) throw new BadRequestError('Job title is required');
     if (!jobData.jobDescription) throw new BadRequestError('Job description is required');
     if (!jobData.role) throw new BadRequestError('Role is required');
-   if (!jobData.slug || jobData.slug.trim() === '') {
-    const slugBase = jobData.jobTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    if (!jobData.slug || jobData.slug.trim() === '') {
+      const slugBase = jobData.jobTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
 
-    jobData.slug = `${slugBase}-${nanoid()}`;
-  } else {
-    // sanitize provided slug
-    jobData.slug = jobData.slug
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  }
-
+      jobData.slug = `${slugBase}-${nanoid()}`;
+    } else {
+      // sanitize provided slug
+      jobData.slug = jobData.slug
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
 
     try {
       const jobListing = await this._jobListingRepository.createJobListing({ ...jobData });
@@ -142,36 +141,6 @@ class JobListingService {
     return {
       ...result,
       jobListings: jobListingsWithLinks
-    };
-  }
-
-  async updateJobListing(
-    jobId: string,
-    updateData: UpdateJobListingParams,
-  ) {
-    if (!jobId) throw new BadRequestError('Job ID is required');
-
-    // Verify job exists
-    const existingJob = await this._jobListingRepository.getJobListingById(jobId);
-    if (!existingJob) throw new NotFoundError('Job listing not found');
-
-    // If updating slug, ensure it's unique
-    if (updateData.slug && updateData.slug !== existingJob.slug) {
-      const existingSlug = await this._jobListingRepository.getJobListingBySlug(updateData.slug);
-      if (existingSlug) {
-        throw new BadRequestError(`Job listing with slug '${updateData.slug}' already exists`);
-      }
-    }
-
-    const updatedJob = await this._jobListingRepository.updateJobListing(jobId, updateData);
-    if (!updatedJob) throw new InternalServerError('Failed to update job listing');
-
-    // Generate shareable link
-    const shareableLink = this.generateShareableLink(updatedJob.slug!);
-
-    return {
-      jobListing: updatedJob,
-      shareableLink
     };
   }
 
@@ -578,30 +547,55 @@ class JobListingService {
     return imageUrls;
   }
 
-  async handleDocumentUploads(params: {
-    files?: Express.Multer.File[];
-    existingDocuments?: string[]
-  }): Promise<string[]> {
-    let documentUrls: string[] = [];
+ async handleDocumentUploads(params: {
+  files?: Express.Multer.File[];
+  existingDocuments?: {
+    url: string;
+    publicId: string;
+    filename: string;
+    size: number;
+    mimeType: string;
+  }[];
+}): Promise<
+  {
+    url: string;
+    publicId: string;
+    filename: string;
+    size: number;
+    mimeType: string;
+  }[]
+> {
+  let documentUrls: {
+    url: string;
+    publicId: string;
+    filename: string;
+    size: number;
+    mimeType: string;
+  }[] = params.existingDocuments || [];
 
-    if (params.existingDocuments) {
-      documentUrls = Array.isArray(params.existingDocuments)
-        ? params.existingDocuments
-        : [params.existingDocuments];
-    }
+  if (params.files && params.files.length > 0) {
+    const uploadPromises = params.files.map((file) =>
+      uploadDocumentToCloudinary(file) as Promise<{
+        url: string;
+        publicId: string;
+        filename: string;
+        size: number;
+        mimeType: string;
+      }>
+    );
 
-    if (params.files && params.files.length > 0) {
-      const uploadPromises = params.files.map((file) => uploadDocumentToCloudinary(file));
-      const newDocumentUrls = await Promise.all(uploadPromises);
-      documentUrls = [...documentUrls, ...newDocumentUrls];
-    }
+    const newDocumentUrls = await Promise.all(uploadPromises);
 
-    if (documentUrls.length === 0) {
-      throw new BadRequestError('At least one document is required');
-    }
-
-    return documentUrls;
+    documentUrls = [...documentUrls, ...newDocumentUrls];
   }
+
+  if (documentUrls.length === 0) {
+    throw new BadRequestError('At least one document is required');
+  }
+
+  return documentUrls;
+}
+
 
  async handleVoiceRecordingUpload(params: {
   file?: Express.Multer.File;
@@ -629,33 +623,61 @@ class JobListingService {
   return result;
 }
 
-async handleVideoRecordingUpload(params: {
-  file?: Express.Multer.File;
-  existingUrl?: string;
-  maxDuration?: number;
-  quality?: 'auto' | 'auto:low' | 'auto:good' | 'auto:best';
-}): Promise<{ url: string; duration: number; format: string }> {
-  if (params.existingUrl) {
+  async handleVideoRecordingUpload(params: {
+    file?: Express.Multer.File;
+    existingUrl?: string;
+    maxDuration?: number;
+    quality?: 'auto' | 'auto:low' | 'auto:good' | 'auto:best';
+  }): Promise<{ url: string; duration: number; format: string }> {
+    if (params.existingUrl) {
+      return {
+        url: params.existingUrl,
+        duration: 0,
+        format: 'unknown'
+      };
+    }
+
+    if (!params.file) {
+      throw new BadRequestError('Video recording file is required');
+    }
+
+    // Upload to Cloudinary with optional duration limit and quality
+    const result = await uploadVideoToCloudinary(params.file, {
+      folder: 'job-listings/video-recordings',
+      maxDuration: params.maxDuration,
+      quality: params.quality || 'auto',
+    });
+
+    return result;
+  }
+
+  async updateJobListing(
+    jobId: string,
+    updateData: UpdateJobListingParams,
+  ) {
+    if (!jobId) throw new BadRequestError('Job ID is required');
+
+    const existingJob = await this._jobListingRepository.getJobListingById(jobId);
+    if (!existingJob) throw new NotFoundError('Job listing not found');
+
+    if (updateData.slug && updateData.slug !== existingJob.slug) {
+      const existingSlug = await this._jobListingRepository.getJobListingBySlug(updateData.slug);
+      if (existingSlug) {
+        throw new BadRequestError(`Job listing with slug '${updateData.slug}' already exists`);
+      }
+    }
+
+    const updatedJob = await this._jobListingRepository.updateJobListing(jobId, updateData);
+    if (!updatedJob) throw new InternalServerError('Failed to update job listing');
+
+    const shareableLink = this.generateShareableLink(updatedJob.slug!);
+
     return {
-      url: params.existingUrl,
-      duration: 0,
-      format: 'unknown'
+      jobListing: updatedJob,
+      shareableLink
     };
   }
 
-  if (!params.file) {
-    throw new BadRequestError('Video recording file is required');
-  }
-
-  // Upload to Cloudinary with optional duration limit and quality
-  const result = await uploadVideoToCloudinary(params.file, {
-    folder: 'job-listings/video-recordings',
-    maxDuration: params.maxDuration,
-    quality: params.quality || 'auto',
-  });
-
-  return result;
-}
 }
 
 export default new JobListingService(JobListingRepository);
